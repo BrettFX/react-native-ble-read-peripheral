@@ -31,6 +31,8 @@
  // import stringToBytes from convert-string package.
  // this func is useful for making string-to-bytes conversion easier
  import { stringToBytes } from 'convert-string';
+
+ import Toast from 'react-native-toast-message';
  
  // import Buffer function.
  // this func is useful for making bytes-to-string conversion easier
@@ -334,6 +336,7 @@
          {/* header */}
          <View style={styles.body}>
            <View style={styles.scanButton}>
+             
              <Button
                title={'Scan Bluetooth Devices'}
                onPress={() => startScan()}
@@ -353,15 +356,35 @@
            renderItem={({item}) => renderItem(item)}
            keyExtractor={(item) => item.id}
          />
+
+        <Toast style={{margin: 10}} ref={(ref) => Toast.setRef(ref)} />
  
          {/* bottom footer */}
          <View style={styles.footer}>
-           <TouchableHighlight onPress={() => setTestMode('write')}>
+           <TouchableHighlight onPress={() => {
+              setTestMode('write');
+              Toast.show({
+                text1: 'Test Mode Changed: WRITE',
+                text2: 'Test mode has been set to write.',
+                visibilityTime: 100,
+                autoHide: true,
+                topOffset: 50
+              });
+            }}>
              <View style={[styles.row, styles.footerButton]}>
                <Text>Store pizza</Text>
              </View>
            </TouchableHighlight>
-           <TouchableHighlight onPress={() => setTestMode('read')}>
+           <TouchableHighlight onPress={() => {
+              setTestMode('read');
+              Toast.show({
+                text1: 'Test Mode Changed: READ',
+                text2: 'Test mode has been set to read.',
+                visibilityTime: 100,
+                autoHide: true,
+                topOffset: 50
+              });
+            }}>
              <View style={[styles.row, styles.footerButton]}>
                <Text>Get stored food</Text>
              </View>
