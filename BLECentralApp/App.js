@@ -80,8 +80,12 @@
    };
  
    // handle stop scan event
-   const handleStopScan = () => {
+   const handleStopScan = (info) => {
      console.log('Scan is stopped');
+     if (info && Object.keys(info).length > 0) {
+      console.log("Got the following info", info);
+     }
+     
      setIsScanning(false);
    };
  
@@ -252,7 +256,10 @@
      console.log('Mount');
  
      // initialize BLE modules
-     BleManager.start({ showAlert: false });
+     BleManager.start({ showAlert: false }).then(() => {
+      // Success code
+      console.log("Module initialized");
+    });
  
      // add ble listeners on mount
      bleEmitter.addListener('BleManagerDiscoverPeripheral', handleDiscoverPeripheral);
