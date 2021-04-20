@@ -5,8 +5,13 @@
  * @flow strict-local
  */
 
- import React, { useState, useEffect } from 'react';
- import {
+ import React, { 
+   useState,
+   useEffect, 
+   Component 
+} from 'react';
+
+import {
    SafeAreaView,
    StyleSheet,
    View,
@@ -19,6 +24,7 @@
    PermissionsAndroid,
    FlatList,
    TouchableHighlight,
+   BackHandler 
  } from 'react-native';
  
  import { Colors } from 'react-native/Libraries/NewAppScreen';
@@ -38,29 +44,127 @@
  // this func is useful for making bytes-to-string conversion easier
  const Buffer = require('buffer/').Buffer;
  
- const App = () => {
-   const [isScanning, setIsScanning] = useState(false);
-   const [list, setList] = useState([]);
-   const peripherals = new Map();
-   const [testMode, setTestMode] = useState('read');
+ class App extends Component {
+  //  [isScanning, setIsScanning] = useState(false);
+  //  [list, setList] = useState([]);
+   peripherals = new Map();
+  //  [testMode, setTestMode] = useState('read');
+
+   constructor(props) {
+      super(props);
+      this.state = {
+        isScanning: false,
+        list: [],
+        testMode: 'read',
+        permissionsGranted: false,
+      };
+
+      console.log("Got here (constructor)");
+      // if (Platform.OS === 'android') {
+      //   this.checkPermissions((permissionsGranted) => {
+      //     // Perform initial scan if permissions are granted
+      //     if (permissionsGranted) {
+      //       console.log("All features of this app are ready to use.");
+      //     } else {
+      //       BackHandler.exitApp();
+      //     }
+      //   });
+      // } 
+
+      if (Platform.OS === 'android') {
+        // const granted = await PermissionsAndroid.request(
+        //   PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        //   {
+        //     title: 'Permission Localisation Bluetooth',
+        //     message: 'Requirement for Bluetooth',
+        //     buttonNeutral: 'Later',
+        //     buttonNegative: 'Cancel',
+        //     buttonPositive: 'OK',
+        //   }
+        // );
+
+        var granted = false;
+        granted = this.checkPermissions();
+
+        if (granted) {
+          console.log("Permissions granted!");
+        }
+
+        // initialize BLE modules
+        BleManager.start({ showAlert: false }).then(() => {
+          // Success code
+          console.log("Module initialized");
+        });
+    
+        // add ble listeners on mount
+        bleEmitter.addListener('BleManagerDiscoverPeripheral', this.handleDiscoverPeripheral);
+        bleEmitter.addListener('BleManagerStopScan', this.handleStopScan);
+        bleEmitter.addListener('BleManagerDisconnectPeripheral', this.handleDisconnectedPeripheral);
+        bleEmitter.addListener('BleManagerDidUpdateValueForCharacteristic', this.handleUpdateValueForCharacteristic);
+
+        // this.checkPermissions((permissionsGranted) => {
+        //   // Perform initial scan if permissions are granted
+        //   if (permissionsGranted) {
+        //     console.log("All features of this app are ready to use.");
+        //     // initialize BLE modules
+        //     BleManager.start({ showAlert: false }).then(() => {
+        //       // Success code
+        //       console.log("Module initialized");
+        //     });
+        
+        //     // add ble listeners on mount
+        //     bleEmitter.addListener('BleManagerDiscoverPeripheral', this.handleDiscoverPeripheral);
+        //     bleEmitter.addListener('BleManagerStopScan', this.handleStopScan);
+        //     bleEmitter.addListener('BleManagerDisconnectPeripheral', this.handleDisconnectedPeripheral);
+        //     bleEmitter.addListener('BleManagerDidUpdateValueForCharacteristic', this.handleUpdateValueForCharacteristic);
+        //   } else {
+        //     BackHandler.exitApp();
+        //   }
+        // });
+      } else {
+        // initialize BLE modules
+        BleManager.start({ showAlert: false }).then(() => {
+          // Success code
+          console.log("Module initialized");
+        });
+    
+        // add ble listeners on mount
+        bleEmitter.addListener('BleManagerDiscoverPeripheral', this.handleDiscoverPeripheral);
+        bleEmitter.addListener('BleManagerStopScan', this.handleStopScan);
+        bleEmitter.addListener('BleManagerDisconnectPeripheral', this.handleDisconnectedPeripheral);
+        bleEmitter.addListener('BleManagerDidUpdateValueForCharacteristic', this.handleUpdateValueForCharacteristic);
+      }
+   }
+
+   setIsScanning = (scanning) => {
+      this.setState({isScanning: scanning});
+   };
+
+   setList = (list) => {
+     this.setState({list: list});
+   };
+
+   setTestMode = (mode) => {
+     this.setState({testMode : mode});
+   };
  
    // start to scan peripherals
-   const startScan = () => {
+   startScan = () => {
  
      // skip if scan process is currenly happening
-     if (isScanning) {
+     if (this.state.isScanning) {
        return;
      }
  
      // first, clear existing peripherals
-     peripherals.clear();
-     setList(Array.from(peripherals.values()));
+     this.peripherals.clear();
+     this.setList(Array.from(this.peripherals.values()));
  
      // then re-scan it
      BleManager.scan([], 3, true)
        .then(() => {
          console.log('Scanning...');
-         setIsScanning(true);
+         this.setIsScanning(true);
        })
        .catch((err) => {
          console.error(err);
@@ -68,41 +172,41 @@
    };
  
    // handle discovered peripheral
-   const handleDiscoverPeripheral = (peripheral) => {
+   handleDiscoverPeripheral = (peripheral) => {
      console.log('Got ble peripheral', peripheral);
  
      if (!peripheral.name) {
        peripheral.name = 'NO NAME';
      }
  
-     peripherals.set(peripheral.id, peripheral);
-     setList(Array.from(peripherals.values()));
+     this.peripherals.set(peripheral.id, peripheral);
+     this.setList(Array.from(this.peripherals.values()));
    };
  
    // handle stop scan event
-   const handleStopScan = (info) => {
+   handleStopScan = (info) => {
      console.log('Scan is stopped');
      if (info && Object.keys(info).length > 0) {
       console.log("Got the following info", info);
      }
      
-     setIsScanning(false);
+     this.setIsScanning(false);
    };
  
    // handle disconnected peripheral
-   const handleDisconnectedPeripheral = (data) => {
+   handleDisconnectedPeripheral = (data) => {
      console.log('Disconnected from ' + data.peripheral);
  
-     let peripheral = peripherals.get(data.peripheral);
+     let peripheral = this.peripherals.get(data.peripheral);
      if (peripheral) {
        peripheral.connected = false;
-       peripherals.set(peripheral.id, peripheral);
-       setList(Array.from(peripherals.values()));
+       this.peripherals.set(peripheral.id, peripheral);
+       this.setList(Array.from(this.peripherals.values()));
      }
    };
  
    // handle update value for characteristic
-   const handleUpdateValueForCharacteristic = (data) => {
+   handleUpdateValueForCharacteristic = (data) => {
      console.log(
        'Received data from: ' + data.peripheral,
        'Characteristic: ' + data.characteristic,
@@ -112,10 +216,10 @@
  
    // retrieve connected peripherals.
    // not currenly used
-   const retrieveConnectedPeripheral = () => {
+   retrieveConnectedPeripheral = () => {
      BleManager.getConnectedPeripherals([]).then((results) => {
-       peripherals.clear();
-       setList(Array.from(peripherals.values()));
+       this.peripherals.clear();
+       this.setList(Array.from(this.peripherals.values()));
  
        if (results.length === 0) {
          console.log('No connected peripherals');
@@ -124,26 +228,26 @@
        for (var i = 0; i < results.length; i++) {
          var peripheral = results[i];
          peripheral.connected = true;
-         peripherals.set(peripheral.id, peripheral);
-         setList(Array.from(peripherals.values()));
+         this.peripherals.set(peripheral.id, peripheral);
+         this.setList(Array.from(this.peripherals.values()));
        }
      });
    };
  
    // update stored peripherals
-   const updatePeripheral = (peripheral, callback) => {
-     let p = peripherals.get(peripheral.id);
+   updatePeripheral = (peripheral, callback) => {
+     let p = this.peripherals.get(peripheral.id);
      if (!p) {
        return;
      }
  
      p = callback(p);
-     peripherals.set(peripheral.id, p);
-     setList(Array.from(peripherals.values()));
+     this.peripherals.set(peripheral.id, p);
+     this.setList(Array.from(this.peripherals.values()));
    };
  
    // get advertised peripheral local name (if exists). default to peripheral name
-   const getPeripheralName = (item) => {
+   getPeripheralName = (item) => {
      if (item.advertising) {
        if (item.advertising.localName) {
          return item.advertising.localName;
@@ -154,7 +258,7 @@
    };
  
    // connect to peripheral then test the communication
-   const connectAndTestPeripheral = (peripheral) => {
+   connectAndTestPeripheral = (peripheral) => {
      if (!peripheral) {
        return;
      }
@@ -198,7 +302,7 @@
            console.log('service:', serviceUUID);
            console.log('characteristic:', charasteristicUUID);
  
-           switch (testMode) {
+           switch (this.state.testMode) {
              case 'write':
                // ===== test write data
                const payload = 'pizza';
@@ -250,58 +354,179 @@
          console.log('Connection error', error);
        });
    };
+
+   checkPermissions = async(callback) => {
+      console.log("Got here in permissions check...");
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        {
+          title: 'Permission Localisation Bluetooth',
+          message: 'Requirement for Bluetooth',
+          buttonNeutral: 'Later',
+          buttonNegative: 'Cancel',
+          buttonPositive: 'OK',
+        }
+      );
+
+      return granted;
+      // PermissionsAndroid.requestMultiple(
+      //   [PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
+      //   PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION]
+      //   ).then((result) => {
+      //     console.log("Got permissions result", result);
+      //     if (result['android.permission.ACCESS_COARSE_LOCATION']
+      //     && result['android.permission.ACCESS_FINE_LOCATION'] === 'granted') {
+      //       this.setState({
+      //         permissionsGranted: true
+      //       });
+      //       console.log("Permissions granted!");
+
+      //       // Invoke callback with success status
+      //       if (callback) {
+      //         callback(true);
+      //       }
+
+      //     } else if (result['android.permission.ACCESS_COARSE_LOCATION']
+      //     || result['android.permission.ACCESS_FINE_LOCATION'] === 'never_ask_again') {
+      //       console.log('Please Go into Settings -> Applications -> BLECentralApp -> Permissions and Allow permissions to continue');
+      //       console.warn("Permissions denied...");
+
+      //       // Invoke callback with denied status
+      //       if (callback) {
+      //         callback(false);
+      //       }
+      //     }
+      //   }).catch((err) => {
+      //     console.error(err);
+      //   });
+
+      //   console.log("Got here (end of permissions check)");
+    };
  
    // mount and onmount event handler
-   useEffect(() => {
-     console.log('Mount');
+   componentDidMount() {
+    console.log("Got here (mount)");
+    console.log('Mount');
+
+    // if (Platform.OS === 'android') {
+    //     this.checkPermissions((permissionsGranted) => {
+    //       // Perform initial scan if permissions are granted
+    //       if (permissionsGranted) {
+    //         console.log("All features of this app are ready to use.");
+    //         // initialize BLE modules
+    //         BleManager.start({ showAlert: false }).then(() => {
+    //           // Success code
+    //           console.log("Module initialized");
+    //         });
+        
+    //         // add ble listeners on mount
+    //         bleEmitter.addListener('BleManagerDiscoverPeripheral', this.handleDiscoverPeripheral);
+    //         bleEmitter.addListener('BleManagerStopScan', this.handleStopScan);
+    //         bleEmitter.addListener('BleManagerDisconnectPeripheral', this.handleDisconnectedPeripheral);
+    //         bleEmitter.addListener('BleManagerDidUpdateValueForCharacteristic', this.handleUpdateValueForCharacteristic);
+    //       } else {
+    //         BackHandler.exitApp();
+    //       }
+    //     });
+    //   } else {
+    //     // initialize BLE modules
+    //     BleManager.start({ showAlert: false }).then(() => {
+    //       // Success code
+    //       console.log("Module initialized");
+    //     });
+    
+    //     // add ble listeners on mount
+    //     bleEmitter.addListener('BleManagerDiscoverPeripheral', this.handleDiscoverPeripheral);
+    //     bleEmitter.addListener('BleManagerStopScan', this.handleStopScan);
+    //     bleEmitter.addListener('BleManagerDisconnectPeripheral', this.handleDisconnectedPeripheral);
+    //     bleEmitter.addListener('BleManagerDidUpdateValueForCharacteristic', this.handleUpdateValueForCharacteristic);
+    //   }
+   }
+
+   componentWillUnmount() {
+      console.log('Unmount');
+
+      bleEmitter.removeListener('BleManagerDiscoverPeripheral', this.handleDiscoverPeripheral);
+      bleEmitter.removeListener('BleManagerStopScan', this.handleStopScan);
+      bleEmitter.removeListener('BleManagerDisconnectPeripheral', this.handleDisconnectedPeripheral);
+      bleEmitter.removeListener('BleManagerDidUpdateValueForCharacteristic', this.handleUpdateValueForCharacteristic);
+   }
+
+  //  useEffect(() => {
+  //    console.log('Mount');
  
-     // initialize BLE modules
-     BleManager.start({ showAlert: false }).then(() => {
-      // Success code
-      console.log("Module initialized");
-    });
+  //    // initialize BLE modules
+  //    BleManager.start({ showAlert: false }).then(() => {
+  //     // Success code
+  //     console.log("Module initialized");
+  //   });
  
-     // add ble listeners on mount
-     bleEmitter.addListener('BleManagerDiscoverPeripheral', handleDiscoverPeripheral);
-     bleEmitter.addListener('BleManagerStopScan', handleStopScan);
-     bleEmitter.addListener('BleManagerDisconnectPeripheral', handleDisconnectedPeripheral);
-     bleEmitter.addListener('BleManagerDidUpdateValueForCharacteristic', handleUpdateValueForCharacteristic);
+  //    // add ble listeners on mount
+  //    bleEmitter.addListener('BleManagerDiscoverPeripheral', handleDiscoverPeripheral);
+  //    bleEmitter.addListener('BleManagerStopScan', handleStopScan);
+  //    bleEmitter.addListener('BleManagerDisconnectPeripheral', handleDisconnectedPeripheral);
+  //    bleEmitter.addListener('BleManagerDidUpdateValueForCharacteristic', handleUpdateValueForCharacteristic);
+
+  //    // Prepare return obj
+  //    retObj = () => {
+  //     console.log('Unmount');
+
+  //     bleEmitter.removeListener('BleManagerDiscoverPeripheral', handleDiscoverPeripheral);
+  //     bleEmitter.removeListener('BleManagerStopScan', handleStopScan);
+  //     bleEmitter.removeListener('BleManagerDisconnectPeripheral', handleDisconnectedPeripheral);
+  //     bleEmitter.removeListener('BleManagerDidUpdateValueForCharacteristic', handleUpdateValueForCharacteristic);
+  //   };
  
-     // check location permission only for android device
-     if (Platform.OS === 'android' && Platform.Version >= 23) {
-       PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION).then((r1) => {
-         if (r1) {
-           console.log('Permission is OK');
-           return;
-         }
+  //    // Request permissions to be able to use this app (android)
+  //    if (Platform.OS === 'android') {
+  //       this.checkPermissions((permissionsGranted) => {
+  //         // Perform initial scan if permissions are granted
+  //         if (permissionsGranted) {
+  //           console.log("All features of this app are ready to use.");
+  //           return retObj;
+  //         } else {
+  //           BackHandler.exitApp();
+  //         }
+  //       });
+  //     } else {
+  //       return retObj;
+  //     }
+
+  //    // check location permission only for android device
+  //   //  if (Platform.OS === 'android' && Platform.Version >= 23) {
+  //   //    PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION).then((r1) => {
+  //   //      if (r1) {
+  //   //        console.log('Permission is OK');
+  //   //       //  return;
+  //   //      }
  
-         PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION).then((r2) => {
-           if (r2) {
-             console.log('User accept');
-             return
-           }
+  //   //      PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION).then((r2) => {
+  //   //        if (r2) {
+  //   //          console.log('User accept');
+  //   //          return
+  //   //        }
  
-           console.log('User refuse');
-         });
-       });
-     }
+  //   //        console.log('User refuse');
+  //   //      });
+  //   //    });
+  //   //  }
  
-     // remove ble listeners on unmount
-     return () => {
-       console.log('Unmount');
+  //    // remove ble listeners on unmount
+  //   //  return () => {
+  //   //    console.log('Unmount');
  
-       bleEmitter.removeListener('BleManagerDiscoverPeripheral', handleDiscoverPeripheral);
-       bleEmitter.removeListener('BleManagerStopScan', handleStopScan);
-       bleEmitter.removeListener('BleManagerDisconnectPeripheral', handleDisconnectedPeripheral);
-       bleEmitter.removeListener('BleManagerDidUpdateValueForCharacteristic', handleUpdateValueForCharacteristic);
-     };
-   }, []);
+  //   //    bleEmitter.removeListener('BleManagerDiscoverPeripheral', handleDiscoverPeripheral);
+  //   //    bleEmitter.removeListener('BleManagerStopScan', handleStopScan);
+  //   //    bleEmitter.removeListener('BleManagerDisconnectPeripheral', handleDisconnectedPeripheral);
+  //   //    bleEmitter.removeListener('BleManagerDidUpdateValueForCharacteristic', handleUpdateValueForCharacteristic);
+  //   //  };
+  //  }, []);
  
    // render list of devices
-   const renderItem = (item) => {
+   renderItem = (item) => {
      const color = item.connected ? 'green' : '#fff';
      return (
-       <TouchableHighlight onPress={() => connectAndTestPeripheral(item)}>
+       <TouchableHighlight onPress={() => this.connectAndTestPeripheral(item)}>
          <View style={[styles.row, {backgroundColor: color}]}>
            <Text
              style={{
@@ -310,7 +535,7 @@
                color: '#333333',
                padding: 10,
              }}>
-             {getPeripheralName(item)}
+             {this.getPeripheralName(item)}
            </Text>
            <Text
              style={{
@@ -336,71 +561,74 @@
      );
    };
  
-   return (
-     <>
-       <StatusBar barStyle="dark-content" />
-       <SafeAreaView style={styles.safeAreaView}>
-         {/* header */}
-         <View style={styles.body}>
-           <View style={styles.scanButton}>
-             
-             <Button
-               title={'Scan Bluetooth Devices'}
-               onPress={() => startScan()}
-             />
-           </View>
+   render() {
+    return (
+      <>
+        <StatusBar barStyle="dark-content" />
+        <SafeAreaView style={styles.safeAreaView}>
+          {/* header */}
+          <View style={styles.body}>
+            <View style={styles.scanButton}>
+              
+              <Button
+                title={'Scan Bluetooth Devices'}
+                onPress={() => this.startScan()}
+              />
+            </View>
+  
+            {this.state.list.length === 0 && (
+              <View style={styles.noPeripherals}>
+                <Text style={styles.noPeripheralsText}>No peripherals</Text>
+              </View>
+            )}
+          </View>
+  
+          {/* ble devices */}
+          <FlatList
+            data={this.state.list}
+            renderItem={({item}) => this.renderItem(item)}
+            keyExtractor={(item) => item.id}
+          />
  
-           {list.length === 0 && (
-             <View style={styles.noPeripherals}>
-               <Text style={styles.noPeripheralsText}>No peripherals</Text>
-             </View>
-           )}
-         </View>
- 
-         {/* ble devices */}
-         <FlatList
-           data={list}
-           renderItem={({item}) => renderItem(item)}
-           keyExtractor={(item) => item.id}
-         />
-
-        <Toast style={{margin: 10}} ref={(ref) => Toast.setRef(ref)} />
- 
-         {/* bottom footer */}
-         <View style={styles.footer}>
-           <TouchableHighlight onPress={() => {
-              setTestMode('write');
-              Toast.show({
-                text1: 'Test Mode Changed: WRITE',
-                text2: 'Test mode has been set to write.',
-                visibilityTime: 100,
-                autoHide: true,
-                topOffset: 50
-              });
-            }}>
-             <View style={[styles.row, styles.footerButton]}>
-               <Text>Store pizza</Text>
-             </View>
-           </TouchableHighlight>
-           <TouchableHighlight onPress={() => {
-              setTestMode('read');
-              Toast.show({
-                text1: 'Test Mode Changed: READ',
-                text2: 'Test mode has been set to read.',
-                visibilityTime: 100,
-                autoHide: true,
-                topOffset: 50
-              });
-            }}>
-             <View style={[styles.row, styles.footerButton]}>
-               <Text>Get stored food</Text>
-             </View>
-           </TouchableHighlight>
-         </View>
-       </SafeAreaView>
-     </>
-   );
- };
+         <Toast style={{margin: 10}} ref={(ref) => Toast.setRef(ref)} />
+  
+          {/* bottom footer */}
+          <View style={styles.footer}>
+            <TouchableHighlight onPress={() => {
+               this.setTestMode('write');
+               Toast.show({
+                 text1: 'Test Mode Changed: WRITE',
+                 text2: 'Test mode has been set to write.',
+                 visibilityTime: 100,
+                 autoHide: true,
+                 topOffset: 50
+               });
+             }}>
+              <View style={[styles.row, styles.footerButton]}>
+                <Text>Store pizza</Text>
+              </View>
+            </TouchableHighlight>
+            <TouchableHighlight onPress={() => {
+               this.setTestMode('read');
+               Toast.show({
+                 text1: 'Test Mode Changed: READ',
+                 text2: 'Test mode has been set to read.',
+                 visibilityTime: 100,
+                 autoHide: true,
+                 topOffset: 50
+               });
+             }}>
+              <View style={[styles.row, styles.footerButton]}>
+                <Text>Get stored food</Text>
+              </View>
+            </TouchableHighlight>
+          </View>
+        </SafeAreaView>
+      </>
+    );
+   }
+   
+ }
  
  const styles = StyleSheet.create({
    safeAreaView: {
