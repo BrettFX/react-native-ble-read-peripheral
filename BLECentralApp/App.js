@@ -36,23 +36,43 @@ import {
  import { stringToBytes } from 'convert-string';
 
  import Toast from 'react-native-toast-message';
+
+ import { BluetoothStatus } from 'react-native-bluetooth-status';
  
  // import Buffer function.
  // this func is useful for making bytes-to-string conversion easier
  const Buffer = require('buffer/').Buffer;
+
+//  const [btStatus, isPending, setBluetooth] = useBluetoothStatus();
  
  class App extends Component {
    peripherals = new Map();
 
    constructor(props) {
+     console.log("Contructor init...");
       super(props);
       this.state = {
         isScanning: false,
         list: [],
         testMode: 'read',
         permissionsGranted: false,
-        connectedPeripheralId: null
+        connectedPeripheralId: null,
+        bluetoothEnabled: false
       };
+
+      // App requires bluetooth (needs to be in constructor to get accurate reading)
+      this.checkBluetoothConnectivity((enabled) => {
+        this.setState({bluetoothEnabled: enabled});
+        if (!enabled) {
+          alert("Bluetooth is turned off. Please turn it on to use this app.");
+        } else {
+          this.startScan();
+        }
+
+        // add bluetooth state change listener
+        BluetoothStatus.addListener(this.handleBluetoothStateChange);
+        
+      });
    }
 
    setIsScanning = (scanning) => {
@@ -62,6 +82,11 @@ import {
    setList = (list) => {
      this.setState({list: list});
    };
+
+   clearList = () => {
+    this.peripherals.clear();
+    this.setList(Array.from(this.peripherals.values()));
+   }
  
    // start to scan peripherals
    startScan = () => {
@@ -72,8 +97,7 @@ import {
      }
  
      // first, clear existing peripherals
-     this.peripherals.clear();
-     this.setList(Array.from(this.peripherals.values()));
+     this.clearList();
  
      // then re-scan it
      BleManager.scan([], 5, true)
@@ -318,25 +342,45 @@ import {
           console.error(err);
         });
     };
+
+    checkBluetoothConnectivity = async(callback) => {
+      const isEnabled = await BluetoothStatus.state();
+      callback(isEnabled);
+    }
+
+    handleBluetoothStateChange = (enabled) => {
+      this.setState({bluetoothEnabled: enabled});
+      if (!enabled) {
+        alert("Bluetooth disabled. You must have bluetooth enabled to use this application. Please turn on bluetooth now.");
+
+        // Clear the peripheral list
+        this.clearList();
+      } else {
+        // Do scan to get fresh list of peripherals
+        this.startScan();
+      }
+    }
  
    // mount and onmount event handler
    componentDidMount() {
+     console.log("Mounted");
       // Check permissions and initialize ble manager
       this.checkPermissions((granted) => {
         if (granted) {
           console.log("Permissions granted!");
 
-          // initialize BLE modules
+          // initialize BLE modules (okay to init bluetooth if bluetooth isn't enabled yet)
           BleManager.start({ showAlert: false }).then(() => {
             // Success code
             console.log("Module initialized");
           });
-      
+
           // add ble listeners on mount
           bleEmitter.addListener('BleManagerDiscoverPeripheral', this.handleDiscoverPeripheral);
           bleEmitter.addListener('BleManagerStopScan', this.handleStopScan);
           bleEmitter.addListener('BleManagerDisconnectPeripheral', this.handleDisconnectedPeripheral);
           bleEmitter.addListener('BleManagerDidUpdateValueForCharacteristic', this.handleUpdateValueForCharacteristic);
+          
         } else {
           alert("Permissions are denied. This app will not function as intended until permissions are enabled.");
         }
@@ -403,9 +447,14 @@ import {
             <View style={styles.scanButton}>
               
               <Button
-                title={'Scan Bluetooth Devices'}
+                title={this.state.isScanning ? 'Scanning Bluetooth Devices...' : 'Scan Bluetooth Devices'}
                 onPress={() => this.startScan()}
+                disabled={!(this.state.bluetoothEnabled && !this.state.isScanning)}
               />
+
+              {/* {Platform.OS === 'android' && (isPending || !btStatus) && (
+                <Button title="Toggle BT" onPress={() => setBluetooth(!btStatus)} />
+              )} */}
             </View>
   
             {this.state.list.length === 0 && (
