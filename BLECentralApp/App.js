@@ -66,7 +66,11 @@ import {
         if (!enabled) {
           alert("Bluetooth is turned off. Please turn it on to use this app.");
         } else {
-          this.startScan();
+          // Automatically start scan if there's no peripherals in the list
+          if (this.state.list.length === 0) {
+            console.log("Peripheral list is empty. Invoking scan...");
+            this.startScan();
+          }
         }
 
         // add bluetooth state change listener
@@ -112,7 +116,7 @@ import {
  
    // handle discovered peripheral
    handleDiscoverPeripheral = (peripheral) => {
-     console.log('Got ble peripheral', peripheral);
+    //  console.log('Got ble peripheral', peripheral);
  
      if (!peripheral.name) {
        peripheral.name = 'NO NAME';
@@ -134,9 +138,8 @@ import {
  
    // handle disconnected peripheral
    handleDisconnectedPeripheral = (data) => {
-     console.log('Disconnected from ' + data.peripheral);
- 
      let peripheral = this.peripherals.get(data.peripheral);
+     console.log(`Disconnected from ${peripheral.id} (${peripheral.name})`);
      if (peripheral) {
        peripheral.connected = false;
        this.peripherals.set(peripheral.id, peripheral);
@@ -264,6 +267,7 @@ import {
        return;
      }
  
+     // Disconnect from peripheral if already connected (toggle feature)
      if (peripheral.connected) {
        BleManager.disconnect(peripheral.id);
        this.setState({connectedPeripheralId: null});
@@ -273,7 +277,7 @@ import {
      // connect to selected peripheral
      BleManager.connect(peripheral.id)
        .then(() => {
-         console.log('Connected to ' + peripheral.id, peripheral);
+         console.log(`Connected to ${peripheral.id} (${peripheral.name})`);
          this.setState({connectedPeripheralId: peripheral.id});
  
          // update connected attribute
@@ -297,7 +301,7 @@ import {
              });
            });
 
-           this.testPeripheral(peripheral.id);
+          //  this.testPeripheral(peripheral.id);
          });
        })
        .catch((error) => {
@@ -356,8 +360,10 @@ import {
         // Clear the peripheral list
         this.clearList();
       } else {
-        // Do scan to get fresh list of peripherals
-        this.startScan();
+        // Do scan to get fresh list of peripherals (only scan if list is empty)
+        if (this.state.list.length === 0) {
+          this.startScan();
+        }
       }
     }
  
