@@ -5,7 +5,7 @@ var bleno = require('@abandonware/bleno');
 function FoodBankCharacteristic() {
   bleno.Characteristic.call(this, {
     uuid: '20000000-0000-0000-0000-000000000001'.replace(/\-/gi, ""),
-    properties: ['read', 'write', 'notify'],
+    properties: ['read', 'writeWithoutResponse', 'notify'],
     descriptors: [
       new bleno.Descriptor({
         uuid: '2901',
@@ -22,27 +22,28 @@ util.inherits(FoodBankCharacteristic, bleno.Characteristic);
 
 // handle on write request with payload
 FoodBankCharacteristic.prototype.onWriteRequest = function(data, offset, withoutResponse, callback) {
-  console.log('incoming write request')
+  console.log('Incoming write request');
+  console.log('Without response?', withoutResponse);
 
   if (offset) {
-    callback(this.RESULT_ATTR_NOT_LONG);
+    if (!withoutResponse) callback(this.RESULT_ATTR_NOT_LONG);
     return;
   }
   
   if (data.length === 0) {
-    callback(this.RESULT_INVALID_ATTRIBUTE_LENGTH);
+    if (!withoutResponse) callback(this.RESULT_INVALID_ATTRIBUTE_LENGTH);
     return;
   }
 
   // if subscription active, notify every write request
   if (this._updateValueCallback) {
-    this._updateValueCallback(data)
+    if (!withoutResponse) this._updateValueCallback(data)
   }
   
   // store data, then write response
   this._storedFood = data;
   console.log('storing food:', data.toString());
-  callback(this.RESULT_SUCCESS);
+  if (!withoutResponse) callback(this.RESULT_SUCCESS);
 };
 
 // handle on read request
