@@ -54,7 +54,7 @@ import {
       this.state = {
         isScanning: false,
         list: [],
-        testMode: 'read',
+        testMode: 'notify',
         permissionsGranted: false,
         connectedPeripheralId: null,
         bluetoothEnabled: false
@@ -220,14 +220,20 @@ import {
           const payloadBytes = stringToBytes(payload);
           console.log('payload:', payload);
 
-          BleManager.write(peripheralId, serviceUUID, charasteristicUUID, payloadBytes)
-            .then((res) => {
-              console.log('write response', res);
-              alert(`your "${payload}" is stored to the food bank. Thank you!`);
-            })
+          const maxByteSize = 4096
+          const queueSleepTime = 10; // Milliseconds
+          BleManager.writeWithoutResponse(peripheralId, serviceUUID, charasteristicUUID, payloadBytes, maxByteSize, queueSleepTime)
             .catch((error) => {
               console.log('write err', error);
             });
+
+          // BleManager.write(peripheralId, serviceUUID, charasteristicUUID, payloadBytes, maxByteSize)
+          //   .then((res) => {
+          //     console.log('write response', res);
+          //   })
+          //   .catch((error) => {
+          //     console.log('write err', error);
+          //   });
           break;
 
         case 'read':
@@ -301,7 +307,10 @@ import {
              });
            });
 
-          //  this.testPeripheral(peripheral.id);
+           // Should send subscription notification
+           this.setState({testMode: 'notify'}, () => {
+              this.testPeripheral(peripheral.id);
+           });
          });
        })
        .catch((error) => {
@@ -485,7 +494,7 @@ import {
                // Invoke functions after state has been changed (using callback)
                this.setState({testMode : 'write'}, () => {
                 Toast.show({
-                  text1: 'Test Mode Changed: WRITE',
+                  text1: 'Invoking WRITE request...',
                   text2: 'Test mode has been set to write.',
                   visibilityTime: 100,
                   autoHide: true,
@@ -493,7 +502,11 @@ import {
                 });
  
                 // Test write (does nothing if not currently connected to peripheral)
-                this.testPeripheral(this.state.connectedPeripheralId);
+                for (var i = 0; i < 100; i++) {
+                  this.testPeripheral(this.state.connectedPeripheralId);
+                }
+
+                // this.testPeripheral(this.state.connectedPeripheralId);
                });
              }}>
               <View style={[styles.row, styles.footerButton]}>
@@ -504,7 +517,7 @@ import {
                // Invoke functions after state has been changed (using callback)
                this.setState({testMode : 'read'}, () => {
                 Toast.show({
-                  text1: 'Test Mode Changed: READ',
+                  text1: 'Invoking READ request...',
                   text2: 'Test mode has been set to read.',
                   visibilityTime: 100,
                   autoHide: true,
