@@ -65,13 +65,7 @@ import {
         this.setState({bluetoothEnabled: enabled});
         if (!enabled) {
           alert("Bluetooth is turned off. Please turn it on to use this app.");
-        } else {
-          // Automatically start scan if there's no peripherals in the list
-          if (this.state.list.length === 0) {
-            console.log("Peripheral list is empty. Invoking scan...");
-            this.startScan();
-          }
-        }
+        } 
 
         // add bluetooth state change listener
         BluetoothStatus.addListener(this.handleBluetoothStateChange);
@@ -384,17 +378,23 @@ import {
         if (granted) {
           console.log("Permissions granted!");
 
-          // initialize BLE modules (okay to init bluetooth if bluetooth isn't enabled yet)
-          BleManager.start({ showAlert: false }).then(() => {
-            // Success code
-            console.log("Module initialized");
-          });
+            // initialize BLE modules (okay to init bluetooth if bluetooth isn't enabled yet)
+            BleManager.start({ showAlert: false }).then(() => {
+              // Success code
+              console.log("Module initialized");
+            });
 
           // add ble listeners on mount
           bleEmitter.addListener('BleManagerDiscoverPeripheral', this.handleDiscoverPeripheral);
           bleEmitter.addListener('BleManagerStopScan', this.handleStopScan);
           bleEmitter.addListener('BleManagerDisconnectPeripheral', this.handleDisconnectedPeripheral);
           bleEmitter.addListener('BleManagerDidUpdateValueForCharacteristic', this.handleUpdateValueForCharacteristic);
+
+          // Automatically start scan if there's no peripherals in the list
+          if (this.state.list.length === 0) {
+            console.log("Peripheral list is empty. Invoking scan...");
+            this.startScan();
+          }
           
         } else {
           alert("Permissions are denied. This app will not function as intended until permissions are enabled.");
