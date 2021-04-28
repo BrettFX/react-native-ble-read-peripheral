@@ -259,6 +259,13 @@ import {
           BleManager.startNotification(peripheralId, serviceUUID, charasteristicUUID)
             .then((res) => {
               console.log('start notification response', res);
+            })
+            .catch((err) => {
+              alert("Failed to notify: " + err);
+
+              // Disconnect from peripheral
+              BleManager.disconnect(peripheralId);
+              this.setState({connectedPeripheralId: null});
             });
           break;
 
